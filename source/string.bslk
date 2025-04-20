@@ -1,0 +1,18 @@
+func strlen(data: i8*) -> u32 {
+    let i: u32 = 0;
+    while (data[i] != 0) {
+        i = i + 1;
+    }
+    return i;
+}
+
+func strcmp(s1: i8*, s2: i8*) -> i32 {
+    let i: u32 = 0;
+    while (s1[i] != 0) {
+        if (s1[i] != s2[i]) {
+            return s1[i] - s2[i];
+        }
+        i = i + 1;
+    }
+    return s1[i] - s2[i];
+}
