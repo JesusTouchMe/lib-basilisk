@@ -1,4 +1,4 @@
-module std::sys::syscall;
+module std::os::syscall;
 
 func syscall0(num: u64) -> u64;
 func syscall1(num: u64, arg1: u64) -> u64;
@@ -6,7 +6,101 @@ func syscall2(num: u64, arg1: u64, arg2: u64) -> u64;
 func syscall3(num: u64, arg1: u64, arg2: u64, arg3: u64) -> u64;
 func syscall4(num: u64, arg1: u64, arg2: u64, arg3: u64, arg4: u64) -> u64;
 func syscall5(num: u64, arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64) -> u64;
+func syscall6(num: u64, arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64, arg6: u64) -> u64;
 
-func write(fd: u32, buf: i8*, count: usz) -> isz {
+const S_IRWXU: u32 = 0000700; // RWX mask for owner
+const S_IRUSR: u32 = 0000400; // R for owner
+const S_IWUSR: u32 = 0000200; // W for owner
+const S_IXUSR: u32 = 0000100; // X for owner
+
+const S_IRWXG: u32 = 0000070; // RWX mask for group
+const S_IRGRP: u32 = 0000040; // R for group
+const S_IWGRP: u32 = 0000020; // W for group
+const S_IXGRP: u32 = 0000010; // X for group
+
+const S_IRWXO: u32 = 0000007; // RWX mask for other
+const S_IROTH: u32 = 0000004; // R for other
+const S_IWOTH: u32 = 0000002; // W for other
+const S_IXOTH: u32 = 0000001; // X for other
+
+const S_ISUID: u32 = 0004000; // set user id on execution
+const S_ISGID: u32 = 0002000; // set group id on execution
+const S_ISVTX: u32 = 0004000; // save swapped text even after use
+
+const O_RDONLY: u32   = 0;
+const O_WRONLY: u32   = 1;
+const O_RDWR: u32     = 2;
+const O_CREAT: u32    = 0100;
+const O_EXCL: u32     = 0200;
+const O_NOCTTY: u32   = 0400;
+const O_TRUNC: u32    = 01000;
+const O_APPEND: u32   = 02000;
+const O_NONBLOCK: u32 = 04000;
+const O_DSYNC: u32    = 010000;
+const O_SYNC: u32     = 04010000;
+const O_RSYNC: u32    = 04010000;
+const O_DIRECTORY: u32= 0200000;
+const O_NOFOLLOW: u32 = 0400000;
+const O_CLOEXEC: u32  = 02000000;
+
+/* mmap prot values */
+const PROT_NONE: i32 = 0x0;
+const PROT_READ: i32 = 0x1;
+const PROT_WRITE: i32 = 0x2;
+const PROT_EXEC: i32 = 0x4;
+const PROT_GROWSDOWN: i32 = 0x01000000;
+const PROT_GROWSUP: i32 = 0x02000000;
+
+/* mmap flag values */
+const MAP_FILE: i32 = 0;
+const MAP_SHARED: i32 = 0x01;
+const MAP_PRIVATE: i32 = 0x02;
+const MAP_SHARED_VALIDATE: i32 = 0x03;
+const MAP_FIXED: i32 = 0x10;
+const MAP_ANONYMOUS: i32 = 0x20;
+const MAP_ANON = MAP_ANONYMOUS;
+const MAP_32BIT: i32 = 0x40;
+const MAP_GROWSDOWN: i32 = 0x0100;
+const MAP_DENYWRITE: i32 = 0x0800;
+const MAP_EXECUTABLE: i32 = 0x1000;
+const MAP_LOCKED: i32 = 0x02000;
+const MAP_NORESERVE: i32 = 0x04000;
+const MAP_POPULATE: i32 = 0x08000;
+const MAP_NONBLOCK: i32 = 0x10000;
+const MAP_STACK: i32 = 0x20000;
+const MAP_HUGETLB: i32 = 0x40000;
+const MAP_SYNC: i32 = 0x80000;
+const MAP_FIXED_NOREPLACE: i32 = 0x100000;
+
+/* other mmap stuff */
+// const MAP_FAILED = (i8*) -1; // TODO: implement unary minus and allow constant expressions in const
+const MAP_HUGE_MASK: i32 = 0x3f;
+const MAP_HUGE_SHIFT = 26;
+
+func read(fd: i32, buf: void*, count: usz) -> isz {
+    return syscall3(fd, buf, count);
+}
+
+func write(fd: i32, buf: void*, count: usz) -> isz {
     return syscall3(1, fd, (u64)buf, count);
+}
+
+func open(filename: char*, flags: i32, mode: u32) -> i32 {
+    return syscall3(2, (u64) filename, flags, mode);
+}
+
+func close(fd: i32) -> i32 {
+    return syscall1(3, fd);
+}
+
+func mmap(addr: void*, length: usz, prot: i32, flags: i32, fd: i32, offset: usz) -> void* {
+    return (i8*) syscall6(9, (u64) addr, length, prot, flags, fd, offset);
+}
+
+func mprotect(addr: i8*, size: usz, prot: i32) -> i32 {
+    return (i32) syscall3(10, (u64) addr, size, prot);
+}
+
+func munmap(addr: void*, length: usz) -> i32 {
+    return (i32) syscall2(11, (u64) addr, length);
 }

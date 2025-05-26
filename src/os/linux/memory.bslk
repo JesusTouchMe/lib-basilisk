@@ -1,0 +1,23 @@
+module std::os::memory;
+
+import std::os::syscall;
+
+func os_mem_getpagesize() -> usz {
+    return 0x1000; // you better be right solar
+}
+
+func os_mem_reserve(size: usz) -> void* {
+    return mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0); // linux lazy commits anyway, just allow read/write now and let it sort it out
+}
+
+func os_mem_commit(memory: void*, size: usz) -> i32 {
+    return 0;
+}
+
+func os_mem_decommit(memory: void*, size: usz) -> i32 {
+    return 0;
+}
+
+func os_mem_release(memory: void*, size: usz) -> i32 {
+    return munmap(memory, size);
+}

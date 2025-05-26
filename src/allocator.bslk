@@ -1,0 +1,137 @@
+module std::allocator;
+
+import std::os::memory;
+
+struct free_node {
+    next: struct free_node*;
+    size: usz;
+}
+
+struct memory_slab {
+    next: struct memory_slab*;
+    free_list: struct free_node*;
+    size: usz;
+    committed_size: usz;
+}
+
+struct allocator {
+    slabs: struct memory_slab*;
+}
+
+impl struct allocator {
+    const gb = 1024 * 1024 * 1024;
+
+    /*
+    func new() -> struct allocator {
+        return struct allocator { nullptr };
+    }
+    */
+
+    func init() -> void {
+        this->slabs = nullptr;
+    }
+
+    func allocate(slice: void[]*, size: usz) -> void {
+        // TODO: implement
+        *((i32*)0) = 69;
+    }
+
+    func allocate_ptr(size: usz) -> void* {
+        const alignment: usz = 16;
+
+        size = (size + alignment - 1) & ~(alignment - 1);
+
+        for (struct memory_slab* slab = slabs; slab != nullptr; slab = slab->next) {
+            let prev: struct free_node* = nullptr;
+            let free_block = this->find_free_node(slab, size, &prev);
+            if (free_block != nullptr) {
+                let err = this->commit_for_allocation(slab, free_block, size);
+                if (err < 0) { // os error
+                    //TODO: log os error?
+                    *((i32*)0) = 69; // something to let the user know it's an error instead of calling exit which is graceful n shi
+                } else if (err > 0) {
+                    continue;
+                }
+
+
+            }
+        }
+    }
+
+    /* private */
+    func find_free_node(slab: struct memory_slab*, size: usz, prev_out: struct free_node**) -> struct free_node* {
+        let best_prev: struct free_node* = nullptr;
+        let best_block: struct free_node* = nullptr;
+        let prev: struct free_node* = nullptr;
+        let current = slab->free_list;
+
+        while (current != nullptr) {
+            if (current->size >= size + sizeof(struct free_node)) {
+                if (best_block == nullptr || current->size < best_block->size) {
+                    best_block = current;
+                    best_prev = prev;
+                }
+            }
+
+            prev = current;
+            current = current->next;
+        }
+
+        if (prev_out != nullptr) *prev_out = best_prev;
+        return best_block;
+    }
+
+    /* private */
+    func commit_for_allocation(slab: struct memory_slab*, block: struct free_node*, size: usz) -> i32 {
+        let slab_base = (u64) slab;
+        let block_start = (u64) block;
+        let block_end = block_start + size + sizeof(struct free_node);
+
+        let committed = slab->committed_size;
+        let committed_end = slab_base + committed;
+
+        if (block_end <= committed_end) {
+            return 0;
+        }
+
+        let pagesize = os_mem_getpagesize();
+
+        let commit_start = committed_end;
+        let commit_end = (block_end + pagesize - 1) & ~(pagesize - 1);
+
+        if (committed_end > slab_base + slab->size) {
+            return 1; // positive error = recoverable, try next slab
+        }
+
+        let commit_size = commit_end - commit_start;
+        if (!os_mem_commit((void*) commit_start, commit_size)) {
+            return -1; // negative error = error in the os, has to fail
+        }
+
+        slab->committed_size += commit_size;
+        return 0;
+    }
+
+    /* private */
+    func allocate_from_block(slab: struct memory_slab*, block: struct free_node*, prev: struct free_node*, size: usz) -> void* {
+        let block_addr = (u64) block;
+        let user_ptr = (void*) (block_addr + sizeof(struct free_node));
+        let total_needed = size + sizeof(struct free_node);
+
+        if (block->size >= total_needed + sizeof(struct free_node) + 16) {
+            let new_block = (struct free_node*) (block_addr + total_needed);
+            new_block->size = block->size - total_needed;
+            new_block->next = block->next;
+
+            if (prev) prev->next = new_block;
+            else slab->free_list = new_block;
+
+            block->size = total_needed;
+        } else {
+            if (prev) prev->next = block->next;
+            else slab->free_list = block->next;
+        }
+
+        return user_ptr;
+    }
+}
